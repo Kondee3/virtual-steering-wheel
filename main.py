@@ -52,8 +52,12 @@ def main():
     button_draw_landmark.place(x=700, y=150)
     info = Label(win)
     info.place(x=700, y=100)
+    wheel_ready_lbl= Label(win)
+    wheel_ready_lbl.place(x=700, y=200)
     label = Label(win)
     label.grid(row=0, column=0)
+    #Tu stworzyc labela na kamere z esp32-s3
+    
     is_braking = False
 
     prev_frame_time = 0
@@ -62,7 +66,6 @@ def main():
     while cap.isOpened():
         button.config(text="Engine: {}".format(engine_state))
         button_draw_landmark.config(text="Landmarks: {}".format(should_draw))
-
         new_frame_time = time.time()
         fps = 1 / (new_frame_time - prev_frame_time)
         prev_frame_time = new_frame_time
@@ -70,7 +73,6 @@ def main():
         image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
         results = hands.process(image)
         # myData = str(bytes(Recv.ReadRawData()))
-        img_h, img_w, _ = image.shape
         hand_1 = (0, 0)
         hand_2 = (0, 0)
         l_brake_index = (0, 0)
@@ -112,6 +114,7 @@ def main():
                     r_brake_index = (brake_landmark.x, brake_landmark.y)
                     hand_2 = (landmark.x, landmark.y)
 
+        wheel_ready_lbl.config(text="Wheel ready: {}".format(wheel_ready))
         if all(wheel_ready):
             brake_dist = math.sqrt(
                 pow(r_brake_index[1] - l_brake_index[1], 2)
@@ -126,7 +129,7 @@ def main():
                 # gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
 
             deg = math.degrees(math.atan2(hand_2[1] - hand_1[1], hand_2[0] - hand_1[0]))
-            abs_deg = np.clip(abs(deg / 90.0), 0.0, 0.9)
+            abs_deg = np.clip(abs(deg / 90.0), 0.0, 1.0)
             procent = int(abs_deg * 100)
 
             if deg > 0:
@@ -151,6 +154,7 @@ def main():
         # cv2.imshow('Wirtualna kierownica', image)
         # cv2.imshow('Nowy obraz', image2)
 
+        #Tu wstawić obraz z esp32-s3
         image_array = Image.fromarray(image)
         imgtk = ImageTk.PhotoImage(image=image_array)
         label.imgtk = imgtk
