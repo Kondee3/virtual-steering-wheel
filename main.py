@@ -5,14 +5,15 @@ import mediapipe as mp
 import numpy as np
 from tkinter import *
 from PIL import Image, ImageTk
+import socket
 
 from UDPSend import UDPSend
 
-# from UDPSend import *
-# from UDPRecv import *
+from UDPSend import *
+from UDPRecv import *
 
-# Send = UDPSend("192.168.50.58", 8888)
-# Recv = UDPRecv("192.168.50.18", 8888)
+# Send = UDPSend("192.168.10.8", 8888)
+# Recv = UDPRecv("192.168.10.26", 8888)
 win = Tk()
 win.geometry("800x600")
 
@@ -30,6 +31,7 @@ def toggle_landmarks():
 
 def main():
     global engine_state
+    to_recv = False
     # Mediapipe
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
@@ -56,14 +58,21 @@ def main():
     wheel_ready_lbl.place(x=700, y=200)
     label = Label(win)
     label.grid(row=0, column=0)
+    label_esp = Label(win)
+    label_esp.grid(row=1, column=0)
     #Tu stworzyc labela na kamere z esp32-s3
     
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 8888))
+    s.listen()
     is_braking = False
 
     prev_frame_time = 0
     new_frame_time = 0
     fps = 0
     while cap.isOpened():
+
+        conn, addr = s.accept()
         button.config(text="Engine: {}".format(engine_state))
         button_draw_landmark.config(text="Landmarks: {}".format(should_draw))
         new_frame_time = time.time()
@@ -72,7 +81,8 @@ def main():
         _data, image = cap.read()
         image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
         results = hands.process(image)
-        # myData = str(bytes(Recv.ReadRawData()))
+
+
         hand_1 = (0, 0)
         hand_2 = (0, 0)
         l_brake_index = (0, 0)
@@ -144,8 +154,10 @@ def main():
                 )
             )
 
-            # Send.SendDataByUDPInThreadBYTE(text.encode())
-            # Send.SendDataByUDPInThreadBYTE(steering_value.encode())
+            wartosci = "{} {}".format(steering_value[0],steering_value[1])
+            if to_recv is False:
+                # Send.SendDataByUDPInThreadBYTE(wartosci.encode())
+                to_recv = True
         # if not all(wheel_ready):
         #     gamepad.left_joystick_float(x_value_float=0, y_value_float=0)
         #     gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
@@ -155,10 +167,30 @@ def main():
         # cv2.imshow('Nowy obraz', image2)
 
         #Tu wstawić obraz z esp32-s3
+
+
+
         image_array = Image.fromarray(image)
-        imgtk = ImageTk.PhotoImage(image=image_array)
+        imgtk = ImageTk.PhotoImage(image=image_array.resize((320,240 )))
         label.imgtk = imgtk
         label.configure(image=imgtk)
+
+        data = conn.recv(76800)
+        conn.sendall(data)
+        if to_recv is True:
+            # myData = Recv.ReadRawData()
+            to_recv = False
+            imgnp=np.array(data,dtype=np.uint8)
+            if len(imgnp):
+                imgdec = cv2.imdecode(imgnp, cv2.IMREAD_ANYCOLOR)         
+                if imgdec is not None:
+                # im = cv2.cvtColor(imgnp, cv2.COLOR_BGR2RGB)
+        
+                    image_array_esp = Image.fromarray(imgdec)
+                    # image_array_esp.resize((320, 240))
+                    imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
+                    label_esp.imgtk = imgtk_esp
+                    label_esp.configure(image=imgtk_esp)
         win.update()
 
 

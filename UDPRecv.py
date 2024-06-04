@@ -28,7 +28,7 @@ class UDPRecv(threading.Thread):
     def run(self):
         while True:
             try:
-                data, addr = self.__recvSock.recvfrom(100)
+                data, addr = self.__recvSock.recvfrom(8192)
                 if len(data) > 0:
                     self.__recvBuffer = bytearray(data)
                     self.__recvNewData = True
