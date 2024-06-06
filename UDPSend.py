@@ -32,5 +32,5 @@ class UDPSend(threading.Thread):
                 if self.__sendFlag:
                     self.__sendSock.sendto(self.__sendBuffer, (self.__UDP_IP_Send, self.__UDP_PORT_Send))
                     self.__sendFlag = False
-                time.sleep(0.01)
+                time.sleep(0.001)
 
