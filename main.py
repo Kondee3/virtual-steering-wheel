@@ -5,7 +5,6 @@ import mediapipe as mp
 import numpy as np
 from tkinter import *
 from PIL import Image, ImageTk
-import socket
 from urllib.request import urlopen
 
 # from UDPSend import *
@@ -20,9 +19,13 @@ engine_state = False
 should_draw = True
 udpWholePacket = np.array([])
 
+camera_from_web = None
 
 
 
+def reload_camera():
+    global camera_from_web
+    camera_from_web = cv2.VideoCapture('http://192.168.4.1:81/stream')
 
 def turn_engine():
     global engine_state
@@ -42,7 +45,6 @@ def main():
     global engine_state, udpWholePacket, is_receiving
     # Mediapipe
 
-    camera_from_web = cv2.VideoCapture('http://192.168.10.8:81/stream')
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
         max_num_hands=2,
@@ -59,13 +61,16 @@ def main():
     cap = cv2.VideoCapture(0)
     # Tkinter
     button = Button(win, command=turn_engine)
-    button.place(x=700, y=50)
+    button.place(x=400, y=50)
     button_draw_landmark = Button(win, command=toggle_landmarks)
-    button_draw_landmark.place(x=700, y=150)
+    button_draw_landmark.place(x=400, y=150)
+    button_reload_camera = Button(win, command=reload_camera)
+    button_reload_camera.place(x=400, y=400)
+    button_reload_camera.config(text="Connect with car!")
     info = Label(win)
-    info.place(x=700, y=100)
+    info.place(x=400, y=100)
     wheel_ready_lbl = Label(win)
-    wheel_ready_lbl.place(x=700, y=200)
+    wheel_ready_lbl.place(x=400, y=200)
     label = Label(win)
     label.grid(row=0, column=0)
     label_esp = Label(win)
@@ -77,7 +82,16 @@ def main():
     prev_frame_time = 0
     new_frame_time = 0
     fps = 0
+
     while cap.isOpened():
+
+        if camera_from_web is not None:
+            r, f = camera_from_web.read()
+            f = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
+            image_array_esp = Image.fromarray(f)
+            imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
+            label_esp.photo_image= imgtk_esp
+            label_esp.configure(image=imgtk_esp)
         button.config(text="Engine: {}".format(engine_state))
         button_draw_landmark.config(text="Landmarks: {}".format(should_draw))
         new_frame_time = time.time()
@@ -170,13 +184,6 @@ def main():
         # cv2.imshow('Nowy obraz', image2)
 
         # Tu wstawić obraz z esp32-s3
-
-        r, f = camera_from_web.read()
-        image_array_esp = Image.fromarray(f)
-        imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
-        label_esp.imgtk = imgtk_esp
-        label_esp.configure(image=imgtk_esp)
-        # cv2.imshow("ip cam", f)
 
         image_array = Image.fromarray(image)
         imgtk = ImageTk.PhotoImage(image=image_array.resize((320, 240)))
