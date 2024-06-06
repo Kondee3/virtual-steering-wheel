@@ -6,13 +6,13 @@ import numpy as np
 from tkinter import *
 from PIL import Image, ImageTk
 import socket
+from urllib.request import urlopen
 
-
-from UDPSend import *
-from UDPRecv import *
-
-Send = UDPSend("192.168.10.8", 8888)
-Recv = UDPRecv("192.168.10.26", 8888)
+# from UDPSend import *
+# from UDPRecv import *
+#
+# Send = UDPSend("192.168.10.8", 8888)
+# Recv = UDPRecv("192.168.10.26", 8888)
 win = Tk()
 win.geometry("800x600")
 is_receiving = False
@@ -41,6 +41,8 @@ def main():
     # print(f"Serving on {addrs}")
     global engine_state, udpWholePacket, is_receiving
     # Mediapipe
+
+    camera_from_web = cv2.VideoCapture('http://192.168.10.8:81/stream')
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
         max_num_hands=2,
@@ -157,7 +159,8 @@ def main():
             )
 
             wartosci = "{} {}".format(steering_value[0], steering_value[1])
-            Send.SendDataByUDPInThreadBYTE(wartosci.encode())
+            # Send.SendDataByUDPInThreadBYTE(wartosci.encode())
+            # cv2.imshow("Camera", img)
         # if not all(wheel_ready):
         #     gamepad.left_joystick_float(x_value_float=0, y_value_float=0)
         #     gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
@@ -168,37 +171,44 @@ def main():
 
         # Tu wstawić obraz z esp32-s3
 
+        r, f = camera_from_web.read()
+        image_array_esp = Image.fromarray(f)
+        imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
+        label_esp.imgtk = imgtk_esp
+        label_esp.configure(image=imgtk_esp)
+        # cv2.imshow("ip cam", f)
+
         image_array = Image.fromarray(image)
         imgtk = ImageTk.PhotoImage(image=image_array.resize((320, 240)))
         label.imgtk = imgtk
         label.configure(image=imgtk)
 
-        imgnp= np.asarray(bytearray(Recv.ReadRawData()), dtype=np.uint8)
-        img_ln = len(imgnp)
-        if img_ln:
-            if img_ln == 1460 and imgnp[0] == 255 and imgnp[1] == 216 and imgnp[2] == 255:
-                print("first bytes: {0}".format(imgnp.flatten()[0:2]))
-                udpWholePacket = np.array(imgnp)
-            elif len(udpWholePacket) > 0:
-                udpWholePacket = np.append(udpWholePacket, imgnp)
-                print("current len: {0}".format(img_ln))
-                if img_ln != 1460 and imgnp[img_ln-2] == 255 and imgnp[img_ln-1] == 217:
-                    print("end wholePacket: {0}".format(len(udpWholePacket)))
-                    print(udpWholePacket)
-                    imgdec = cv2.imdecode(udpWholePacket, cv2.IMREAD_ANYCOLOR)
-
-                    if imgdec is not None:
-                    # imgdec = udpWholePacket
-                    # im = cv2.cvtColor(imgnp, cv2.COLOR_BGR2RGB)
-                        print("show camera")
-                        image_array_esp = Image.fromarray(imgdec)
-                        # image_array_esp.resize((320, 240))
-                        imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
-                        label_esp.imgtk = imgtk_esp
-                        label_esp.configure(image=imgtk_esp)
-                        udpWholePacket = np.array([])
-            # if len(udpWholePacket) > 15000:
-            #     udpWholePacket = np.array([])
+        # imgnp= np.asarray(bytearray(Recv.ReadRawData()), dtype=np.uint8)
+        # img_ln = len(imgnp)
+        # if img_ln:
+        #     if img_ln == 1460 and imgnp[0] == 255 and imgnp[1] == 216 and imgnp[2] == 255:
+        #         print("first bytes: {0}".format(imgnp.flatten()[0:2]))
+        #         udpWholePacket = np.array(imgnp)
+        #     elif len(udpWholePacket) > 0:
+        #         udpWholePacket = np.append(udpWholePacket, imgnp)
+        #         print("current len: {0}".format(img_ln))
+        #         if img_ln != 1460 and imgnp[img_ln-2] == 255 and imgnp[img_ln-1] == 217:
+        #             print("end wholePacket: {0}".format(len(udpWholePacket)))
+        #             print(udpWholePacket)
+        #             imgdec = cv2.imdecode(udpWholePacket, cv2.IMREAD_ANYCOLOR)
+        #
+        #             if imgdec is not None:
+        #             # imgdec = udpWholePacket
+        #             # im = cv2.cvtColor(imgnp, cv2.COLOR_BGR2RGB)
+        #                 print("show camera")
+        #                 image_array_esp = Image.fromarray(imgdec)
+        #                 # image_array_esp.resize((320, 240))
+        #                 imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
+        #                 label_esp.imgtk = imgtk_esp
+        #                 label_esp.configure(image=imgtk_esp)
+        #                 udpWholePacket = np.array([])
+        #     # if len(udpWholePacket) > 15000:
+        #     #     udpWholePacket = np.array([])
         win.update()
 
 
