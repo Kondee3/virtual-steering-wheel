@@ -34,4 +34,4 @@ class UDPRecv(threading.Thread):
                     self.__recvNewData = True
             except:
                 None
-            time.sleep(0.001)
+            # time.sleep(0.001)

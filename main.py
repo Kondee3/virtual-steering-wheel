@@ -185,16 +185,18 @@ def main():
                 if img_ln != 1460 and imgnp[img_ln-2] == 255 and imgnp[img_ln-1] == 217:
                     print("end wholePacket: {0}".format(len(udpWholePacket)))
                     print(udpWholePacket)
-                    imgdec = cv2.imdecode(udpWholePacket, cv2.IMREAD_COLOR)
+                    imgdec = cv2.imdecode(udpWholePacket, cv2.IMREAD_ANYCOLOR)
+
                     if imgdec is not None:
                     # imgdec = udpWholePacket
                     # im = cv2.cvtColor(imgnp, cv2.COLOR_BGR2RGB)
                         print("show camera")
                         image_array_esp = Image.fromarray(imgdec)
-                        image_array_esp.resize((320, 240))
+                        # image_array_esp.resize((320, 240))
                         imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
                         label_esp.imgtk = imgtk_esp
                         label_esp.configure(image=imgtk_esp)
+                        udpWholePacket = np.array([])
             # if len(udpWholePacket) > 15000:
             #     udpWholePacket = np.array([])
         win.update()
