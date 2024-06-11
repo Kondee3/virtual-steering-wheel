@@ -5,19 +5,15 @@ import mediapipe as mp
 import numpy as np
 from tkinter import *
 from PIL import Image, ImageTk
-from urllib.request import urlopen
 
-# from UDPSend import *
-# from UDPRecv import *
-#
-# Send = UDPSend("192.168.10.8", 8888)
-# Recv = UDPRecv("192.168.10.26", 8888)
+from UDPSend import *
+
+Send = UDPSend("192.168.4.1", 8888)
+
 win = Tk()
 win.geometry("800x600")
-is_receiving = False
 engine_state = False
 should_draw = True
-udpWholePacket = np.array([])
 
 camera_from_web = None
 
@@ -26,6 +22,8 @@ camera_from_web = None
 def reload_camera():
     global camera_from_web
     camera_from_web = cv2.VideoCapture('http://192.168.4.1:81/stream')
+    # camera_from_web.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
 
 def turn_engine():
     global engine_state
@@ -38,13 +36,8 @@ def toggle_landmarks():
 
 
 def main():
-    print("Main working")
-    # server = await asyncio.start_server(wait_for_data, "192.168.10.26", 8888)
-    # addrs = ", ".join(str(sock.getsockname()) for sock in server.sockets)
-    # print(f"Serving on {addrs}")
-    global engine_state, udpWholePacket, is_receiving
+    global engine_state 
     # Mediapipe
-
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
         max_num_hands=2,
@@ -53,6 +46,9 @@ def main():
         model_complexity=0,
     )
     mp_drawing = mp.solutions.drawing_utils
+    middle_finger_landmark = mp_hands.HandLandmark.MIDDLE_FINGER_DIP
+    index_finger_landmark = mp_hands.HandLandmark.INDEX_FINGER_TIP
+
 
     drawing_spec = mp_drawing.DrawingSpec(
         thickness=1, circle_radius=1, color=(0, 255, 0)
@@ -75,10 +71,8 @@ def main():
     label.grid(row=0, column=0)
     label_esp = Label(win)
     label_esp.grid(row=1, column=0)
-    # Tu stworzyc labela na kamere z esp32-s3
 
     is_braking = False
-
     prev_frame_time = 0
     new_frame_time = 0
     fps = 0
@@ -90,7 +84,7 @@ def main():
             f = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
             image_array_esp = Image.fromarray(f)
             imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
-            label_esp.photo_image= imgtk_esp
+            # label_esp.imgtk = imgtk_esp
             label_esp.configure(image=imgtk_esp)
         button.config(text="Engine: {}".format(engine_state))
         button_draw_landmark.config(text="Landmarks: {}".format(should_draw))
@@ -111,17 +105,13 @@ def main():
         handedness = results.multi_handedness
         multi_hand_landmarks = results.multi_hand_landmarks
 
-        # if is_braking:
-        #     gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
-        # else:
-        #     gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
         if multi_hand_landmarks:
             for idx, hand_landmarks in enumerate(multi_hand_landmarks):
                 landmark = hand_landmarks.landmark[
-                    mp_hands.HandLandmark.MIDDLE_FINGER_DIP
+                        middle_finger_landmark
                 ]
                 brake_landmark = hand_landmarks.landmark[
-                    mp_hands.HandLandmark.INDEX_FINGER_TIP
+                        index_finger_landmark
                 ]
                 hand_index = handedness[idx].classification[0].index
                 if should_draw:
@@ -151,77 +141,36 @@ def main():
 
             if 0.075 > brake_dist > 0:
                 is_braking = True
-                # gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
             else:  # Gaz
                 is_braking = False
-                # gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
 
             deg = math.degrees(math.atan2(hand_2[1] - hand_1[1], hand_2[0] - hand_1[0]))
             abs_deg = np.clip(abs(deg / 90.0), 0.0, 1.0)
             procent = int(abs_deg * 100)
+            if is_braking:
+                procent = -procent
 
             if deg > 0:
-                # gamepad.left_joystick_float(x_value_float=abs_deg, y_value_float=0)
                 steering_value = (procent, 0)
+                Send.SendDataByUDPInThreadBYTE(str(procent).encode())
             if deg < 0:
-                # gamepad.left_joystick_float(x_value_float=-abs_deg, y_value_float=0)
                 steering_value = (0, procent)
+                if is_braking:
+                    Send.SendDataByUDPInThreadBYTE(str(procent-101).encode())
+                else:
+                    Send.SendDataByUDPInThreadBYTE(str(procent+101).encode())
             info.config(
                 text="Prawo: {0} Lewo: {1} Hamowanie:{2} FPS:{3}".format(
                     steering_value[0], steering_value[1], is_braking, round(fps, 2)
                 )
             )
 
-            wartosci = "{} {}".format(steering_value[0], steering_value[1])
-            # Send.SendDataByUDPInThreadBYTE(wartosci.encode())
-            # cv2.imshow("Camera", img)
-        # if not all(wheel_ready):
-        #     gamepad.left_joystick_float(x_value_float=0, y_value_float=0)
-        #     gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
-        #     gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
-        # gamepad.update()
-        # cv2.imshow('Wirtualna kierownica', image)
-        # cv2.imshow('Nowy obraz', image2)
-
-        # Tu wstawić obraz z esp32-s3
-
         image_array = Image.fromarray(image)
         imgtk = ImageTk.PhotoImage(image=image_array.resize((320, 240)))
-        label.imgtk = imgtk
+        # label.imgtk = imgtk
         label.configure(image=imgtk)
 
-        # imgnp= np.asarray(bytearray(Recv.ReadRawData()), dtype=np.uint8)
-        # img_ln = len(imgnp)
-        # if img_ln:
-        #     if img_ln == 1460 and imgnp[0] == 255 and imgnp[1] == 216 and imgnp[2] == 255:
-        #         print("first bytes: {0}".format(imgnp.flatten()[0:2]))
-        #         udpWholePacket = np.array(imgnp)
-        #     elif len(udpWholePacket) > 0:
-        #         udpWholePacket = np.append(udpWholePacket, imgnp)
-        #         print("current len: {0}".format(img_ln))
-        #         if img_ln != 1460 and imgnp[img_ln-2] == 255 and imgnp[img_ln-1] == 217:
-        #             print("end wholePacket: {0}".format(len(udpWholePacket)))
-        #             print(udpWholePacket)
-        #             imgdec = cv2.imdecode(udpWholePacket, cv2.IMREAD_ANYCOLOR)
-        #
-        #             if imgdec is not None:
-        #             # imgdec = udpWholePacket
-        #             # im = cv2.cvtColor(imgnp, cv2.COLOR_BGR2RGB)
-        #                 print("show camera")
-        #                 image_array_esp = Image.fromarray(imgdec)
-        #                 # image_array_esp.resize((320, 240))
-        #                 imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
-        #                 label_esp.imgtk = imgtk_esp
-        #                 label_esp.configure(image=imgtk_esp)
-        #                 udpWholePacket = np.array([])
-        #     # if len(udpWholePacket) > 15000:
-        #     #     udpWholePacket = np.array([])
         win.update()
 
-
-
-
-
 if __name__ == "__main__":
-
     main()
