@@ -25,10 +25,8 @@ def reload_camera():
     # camera_from_web.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 
-def turn_engine():
-    global engine_state
-    engine_state = not engine_state
-
+def turn_engine_off():
+    Send.SendDataByUDPInThreadBYTE(str(0).encode())
 
 def toggle_landmarks():
     global should_draw
@@ -56,8 +54,9 @@ def main():
     # CV
     cap = cv2.VideoCapture(0)
     # Tkinter
-    button = Button(win, command=turn_engine)
+    button = Button(win, command=turn_engine_off)
     button.place(x=400, y=50)
+    button.config(text="Engine OFF")
     button_draw_landmark = Button(win, command=toggle_landmarks)
     button_draw_landmark.place(x=400, y=150)
     button_reload_camera = Button(win, command=reload_camera)
@@ -86,7 +85,6 @@ def main():
             imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
             # label_esp.imgtk = imgtk_esp
             label_esp.configure(image=imgtk_esp)
-        button.config(text="Engine: {}".format(engine_state))
         button_draw_landmark.config(text="Landmarks: {}".format(should_draw))
         new_frame_time = time.time()
         fps = 1 / (new_frame_time - prev_frame_time)
