@@ -5,14 +5,12 @@ import mediapipe as mp
 import numpy as np
 from tkinter import *
 from PIL import Image, ImageTk
-import customtkinter as ct
-
+from ThreadedCamera import ThreadedCamera
 from UDPSend import *
 
 Send = UDPSend("192.168.4.1", 8888)
 
-win = ct.CTk()
-ct.set_appearance_mode("light")
+win = Tk()
 win.geometry("800x600")
 engine_state = False
 should_draw = True
@@ -23,13 +21,14 @@ camera_from_web = None
 
 def reload_camera():
     global camera_from_web
-    camera_from_web = cv2.VideoCapture('http://192.168.4.1:81/stream', cv2.CAP_FFMPEG)
-    camera_from_web.set(cv2.CAP_PROP_BUFFERSIZE, 3)
+    camera_from_web = ThreadedCamera('http://192.168.4.1:81/stream')
 
 
 def exit_app():
-    global should_work, Send
-    Send.__willSend = False
+    global should_work, Send, camera_from_web
+    Send.stop()
+    if camera_from_web is not None:
+        camera_from_web.stop()
     should_work = False
     win.destroy()
     exit()    
@@ -42,7 +41,7 @@ def toggle_landmarks():
 
 
 def main():
-    global engine_state 
+    global engine_state, camera_from_web
     # Mediapipe
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(
@@ -62,9 +61,9 @@ def main():
     # CV
     cap = cv2.VideoCapture(0)
     # Tkinter
-    button = ct.CTkButton(win, command=turn_engine_off)
+    button = Button(win, command=turn_engine_off)
     button.place(x=400, y=50)
-    button.configure(text="Engine OFF")
+    button.config(text="Engine OFF")
     button_draw_landmark = Button(win, command=toggle_landmarks)
     button_draw_landmark.place(x=400, y=150)
     button_reload_camera = Button(win, command=reload_camera)
@@ -89,14 +88,18 @@ def main():
 
     while should_work:
 
-        if camera_from_web is not None:
-            r, f = camera_from_web.read()
-            if f is not None:
-
-                f = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
-                image_array_esp = Image.fromarray(f)
-                imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
-                label_esp.configure(image=imgtk_esp)
+        try:
+            if camera_from_web is not None:
+                f = camera_from_web.frame
+                if f is not None:
+                    f = cv2.flip(f, 0)
+                    f = cv2.flip(f, 1)
+                    f = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
+                    image_array_esp = Image.fromarray(f)
+                    imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
+                    label_esp.configure(image=imgtk_esp)
+        except AttributeError:
+            camera_from_web = ThreadedCamera('http://192.168.4.1:81/stream')
         button_draw_landmark.config(text="Landmarks: {}".format(should_draw))
         new_frame_time = time.time()
         fps = 1 / (new_frame_time - prev_frame_time)

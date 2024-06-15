@@ -1,6 +1,7 @@
 import socket
 import time
 import threading
+import cv2
 
 class UDPSend(threading.Thread):
     def __init__(self, IpAddressToSend, IpPortToSend):
@@ -19,6 +20,9 @@ class UDPSend(threading.Thread):
     def UpdateSendingPORT(self, data):
         self.__UDP_PORT_Send = str(data)
 
+    def stop(self):
+        self.__willSend = False
+
     def SendDataByUDPInThreadINT(self, databuffer):
         self.__sendBuffer = []
         self.__sendBuffer = bytearray(databuffer)
@@ -33,5 +37,6 @@ class UDPSend(threading.Thread):
                 if self.__sendFlag:
                     self.__sendSock.sendto(self.__sendBuffer, (self.__UDP_IP_Send, self.__UDP_PORT_Send))
                     self.__sendFlag = False
-                time.sleep(0.001)
+
+                time.sleep(0.01)
 
