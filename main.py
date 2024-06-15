@@ -5,26 +5,34 @@ import mediapipe as mp
 import numpy as np
 from tkinter import *
 from PIL import Image, ImageTk
+import customtkinter as ct
 
 from UDPSend import *
 
 Send = UDPSend("192.168.4.1", 8888)
 
-win = Tk()
+win = ct.CTk()
+ct.set_appearance_mode("light")
 win.geometry("800x600")
 engine_state = False
 should_draw = True
-
+should_work = True
 camera_from_web = None
 
 
 
 def reload_camera():
     global camera_from_web
-    camera_from_web = cv2.VideoCapture('http://192.168.4.1:81/stream')
-    # camera_from_web.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    camera_from_web = cv2.VideoCapture('http://192.168.4.1:81/stream', cv2.CAP_FFMPEG)
+    camera_from_web.set(cv2.CAP_PROP_BUFFERSIZE, 3)
 
 
+def exit_app():
+    global should_work, Send
+    Send.__willSend = False
+    should_work = False
+    win.destroy()
+    exit()    
 def turn_engine_off():
     Send.SendDataByUDPInThreadBYTE(str(0).encode())
 
@@ -54,14 +62,17 @@ def main():
     # CV
     cap = cv2.VideoCapture(0)
     # Tkinter
-    button = Button(win, command=turn_engine_off)
+    button = ct.CTkButton(win, command=turn_engine_off)
     button.place(x=400, y=50)
-    button.config(text="Engine OFF")
+    button.configure(text="Engine OFF")
     button_draw_landmark = Button(win, command=toggle_landmarks)
     button_draw_landmark.place(x=400, y=150)
     button_reload_camera = Button(win, command=reload_camera)
-    button_reload_camera.place(x=400, y=400)
-    button_reload_camera.config(text="Connect with car!")
+    button_reload_camera.place(x=400, y=350)
+    button_reload_camera.config(text="Show car camera!")
+    button_exit = Button(win, command=exit_app)
+    button_exit.place(x=400, y=600)
+    button_exit.config(text="Exit App")
     info = Label(win)
     info.place(x=400, y=100)
     wheel_ready_lbl = Label(win)
@@ -76,15 +87,16 @@ def main():
     new_frame_time = 0
     fps = 0
 
-    while cap.isOpened():
+    while should_work:
 
         if camera_from_web is not None:
             r, f = camera_from_web.read()
-            f = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
-            image_array_esp = Image.fromarray(f)
-            imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
-            # label_esp.imgtk = imgtk_esp
-            label_esp.configure(image=imgtk_esp)
+            if f is not None:
+
+                f = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
+                image_array_esp = Image.fromarray(f)
+                imgtk_esp = ImageTk.PhotoImage(image=image_array_esp)
+                label_esp.configure(image=imgtk_esp)
         button_draw_landmark.config(text="Landmarks: {}".format(should_draw))
         new_frame_time = time.time()
         fps = 1 / (new_frame_time - prev_frame_time)
@@ -167,7 +179,6 @@ def main():
         imgtk = ImageTk.PhotoImage(image=image_array.resize((320, 240)))
         # label.imgtk = imgtk
         label.configure(image=imgtk)
-
         win.update()
 
 if __name__ == "__main__":

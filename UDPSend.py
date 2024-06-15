@@ -10,6 +10,7 @@ class UDPSend(threading.Thread):
         self.__sendSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.__sendBuffer = []
         self.__sendFlag = False
+        self.__willSend = True 
         self.start()
 
     def UpdateSendingIP(self, data):
@@ -28,7 +29,7 @@ class UDPSend(threading.Thread):
         self.__sendBuffer = databuffer
         self.__sendFlag = True
     def run(self):
-        while True:
+        while self.__willSend:
                 if self.__sendFlag:
                     self.__sendSock.sendto(self.__sendBuffer, (self.__UDP_IP_Send, self.__UDP_PORT_Send))
                     self.__sendFlag = False
