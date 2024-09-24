@@ -1,5 +1,6 @@
 from threading import Thread
-import cv2, time
+import cv2
+import time
 
 class ThreadedCamera(object):
     def __init__(self, src=""):

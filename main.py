@@ -81,13 +81,17 @@ def main():
     label_esp = Label(win)
     label_esp.grid(row=1, column=0)
 
-    is_braking = False
     prev_frame_time = 0
     new_frame_time = 0
     fps = 0
 
+    is_braking = False
+    hand_1 = (0, 0)
+    hand_2 = (0, 0)
+    l_brake_index = (0, 0)
+    r_brake_index = (0, 0)
+    steering_value = (0, 0)
     while should_work:
-
         try:
             if camera_from_web is not None:
                 f = camera_from_web.frame
@@ -108,11 +112,6 @@ def main():
         image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
         results = hands.process(image)
 
-        hand_1 = (0, 0)
-        hand_2 = (0, 0)
-        l_brake_index = (0, 0)
-        r_brake_index = (0, 0)
-        steering_value = (0, 0)
 
         wheel_ready = (False, False)
         handedness = results.multi_handedness
@@ -135,33 +134,28 @@ def main():
                         landmark_drawing_spec=drawing_spec,
                         connection_drawing_spec=drawing_spec,
                     )
-                if hand_index == 0:
-                    wheel_ready = (True, wheel_ready[1])
-                    l_brake_index = (brake_landmark.x, brake_landmark.y)
-                    hand_1 = (landmark.x, landmark.y)
-
-                if hand_index == 1:
-                    wheel_ready = [wheel_ready[0], True]
-                    r_brake_index = (brake_landmark.x, brake_landmark.y)
-                    hand_2 = (landmark.x, landmark.y)
+                match hand_index:
+                    case 0:
+                        wheel_ready = (True, wheel_ready[1])
+                        l_brake_index = (brake_landmark.x, brake_landmark.y)
+                        hand_1 = (landmark.x, landmark.y)
+                    case 1:
+                        wheel_ready = [wheel_ready[0], True]
+                        r_brake_index = (brake_landmark.x, brake_landmark.y)
+                        hand_2 = (landmark.x, landmark.y)
 
         wheel_ready_lbl.config(text="Wheel ready: {}".format(wheel_ready))
         if all(wheel_ready):
-            brake_dist = math.sqrt(
-                pow(r_brake_index[1] - l_brake_index[1], 2)
-                + pow(r_brake_index[0] - l_brake_index[0], 2)
-            )
-
-            if 0.075 > brake_dist > 0:
-                is_braking = True
-            else:  # Gaz
-                is_braking = False
+            brake_dist = math.dist(r_brake_index, l_brake_index)
 
             deg = math.degrees(math.atan2(hand_2[1] - hand_1[1], hand_2[0] - hand_1[0]))
             abs_deg = np.clip(abs(deg / 90.0), 0.0, 1.0)
             procent = int(abs_deg * 100)
-            if is_braking:
+            if 0.075 > brake_dist > 0:
+                is_braking = True
                 procent = -procent
+            else:  # Gaz
+                is_braking = False
 
             if deg > 0:
                 steering_value = (procent, 0)
@@ -172,11 +166,11 @@ def main():
                     Send.SendDataByUDPInThreadBYTE(str(procent-101).encode())
                 else:
                     Send.SendDataByUDPInThreadBYTE(str(procent+101).encode())
-            info.config(
-                text="Prawo: {0} Lewo: {1} Hamowanie:{2} FPS:{3}".format(
-                    steering_value[0], steering_value[1], is_braking, round(fps, 2)
-                )
+        info.config(
+            text="Prawo: {0} Lewo: {1} Hamowanie:{2} FPS:{3}".format(
+                steering_value[0], steering_value[1], is_braking, round(fps, 2)
             )
+        )
 
         image_array = Image.fromarray(image)
         imgtk = ImageTk.PhotoImage(image=image_array.resize((320, 240)))
